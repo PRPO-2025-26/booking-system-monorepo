@@ -1,0 +1,12 @@
+# Local Development Configuration
+# Copy this file to application-local.properties and add your actual Stripe keys
+# application-local.properties is ignored by git for security
+
+# Stripe Test API Keys (get from https://dashboard.stripe.com/test/apikeys)
+stripe.api.key=sk_test_your_actual_test_key_here
+stripe.webhook.secret=whsec_your_actual_webhook_secret_here
+
+# Override database if needed
+# spring.datasource.url=jdbc:postgresql://localhost:5432/booking_system_dev
+# spring.datasource.username=admin
+# spring.datasource.password=admin123
