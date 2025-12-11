@@ -1,0 +1,14 @@
+package si.fri.prpo.notificationservice.entity;
+
+public enum NotificationType {
+    BOOKING_CONFIRMATION,
+    BOOKING_CANCELLATION,
+    BOOKING_REMINDER,
+    PAYMENT_CONFIRMATION,
+    PAYMENT_FAILED,
+    PAYMENT_REFUND,
+    EVENT_REMINDER,
+    EVENT_CANCELLATION,
+    EVENT_RESCHEDULED,
+    CUSTOM
+}
