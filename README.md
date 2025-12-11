@@ -571,14 +571,15 @@ booking-system-monorepo/
 - [x] Payment-service (Stripe integration + Mock mode)
 - [x] Calendar-service (Google Calendar integration + Mock mode)
 - [x] Notification-service (Email/SMS notifications + Mock mode)
+- [x] **Service integration** (Booking → Payment → Calendar → Notification flow)
 - [x] API documentation for all services
 - [x] Error handling & validation
 
 ### In Progress 🔄
 
-- [ ] Service integration (Booking → Payment → Calendar → Notification flow)
-- [ ] Docker Compose update (add new services)
+- [ ] Docker Compose update (add all 6 services)
 - [ ] API Gateway implementation
+- [ ] Payment webhooks (Stripe callbacks)
 
 ### Planned 🔜
 
