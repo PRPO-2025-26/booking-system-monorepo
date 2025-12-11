@@ -1,0 +1,130 @@
+{
+  "info": {
+    "name": "Payment Service API",
+    "description": "Collection za testiranje Payment Service",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8083/api/payments/health",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8083",
+          "path": ["api", "payments", "health"]
+        }
+      }
+    },
+    {
+      "name": "2. Create Payment (Checkout)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"bookingId\": 1,\n  \"userId\": 1,\n  \"amount\": 30.00,\n  \"currency\": \"EUR\",\n  \"description\": \"Booking #1 - Football Field (2 hours)\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8083/api/payments/checkout",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8083",
+          "path": ["api", "payments", "checkout"]
+        }
+      }
+    },
+    {
+      "name": "3. Get Payment by ID",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8083/api/payments/1",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8083",
+          "path": ["api", "payments", "1"]
+        }
+      }
+    },
+    {
+      "name": "4. Get Payment by Booking ID",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8083/api/payments/booking/1",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8083",
+          "path": ["api", "payments", "booking", "1"]
+        }
+      }
+    },
+    {
+      "name": "5. Get Payment Status",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8083/api/payments/1/status",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8083",
+          "path": ["api", "payments", "1", "status"]
+        }
+      }
+    },
+    {
+      "name": "6. Get User Payments",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8083/api/payments/user/1",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8083",
+          "path": ["api", "payments", "user", "1"]
+        }
+      }
+    },
+    {
+      "name": "7. Get Completed Payments",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8083/api/payments/user/1/completed",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8083",
+          "path": ["api", "payments", "user", "1", "completed"]
+        }
+      }
+    },
+    {
+      "name": "8. Cancel Payment",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8083/api/payments/1",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8083",
+          "path": ["api", "payments", "1"]
+        }
+      }
+    }
+  ]
+}

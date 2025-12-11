@@ -1,0 +1,17 @@
+si\fri\prpo\calendarservice\entity\EventStatus.class
+si\fri\prpo\calendarservice\dto\EventRequest.class
+si\fri\prpo\calendarservice\service\CalendarEventService.class
+si\fri\prpo\calendarservice\exception\ErrorResponse.class
+si\fri\prpo\calendarservice\entity\CalendarEvent$CalendarEventBuilder.class
+si\fri\prpo\calendarservice\exception\GlobalExceptionHandler.class
+si\fri\prpo\calendarservice\exception\CalendarException.class
+si\fri\prpo\calendarservice\dto\EventRequest$EventRequestBuilder.class
+si\fri\prpo\calendarservice\service\GoogleCalendarService.class
+si\fri\prpo\calendarservice\controller\CalendarController.class
+si\fri\prpo\calendarservice\entity\SyncStatus.class
+si\fri\prpo\calendarservice\entity\CalendarEvent.class
+si\fri\prpo\calendarservice\repository\CalendarEventRepository.class
+si\fri\prpo\calendarservice\dto\EventResponse$EventResponseBuilder.class
+si\fri\prpo\calendarservice\CalendarServiceApplication.class
+si\fri\prpo\calendarservice\dto\EventResponse.class
+si\fri\prpo\calendarservice\exception\EventNotFoundException.class

@@ -4,9 +4,16 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import si.fri.prpo.bookingservice.client.CalendarClient;
+import si.fri.prpo.bookingservice.client.NotificationClient;
+import si.fri.prpo.bookingservice.client.PaymentClient;
 import si.fri.prpo.bookingservice.dto.BookingRequest;
 import si.fri.prpo.bookingservice.dto.BookingResponse;
 import si.fri.prpo.bookingservice.dto.UpdateBookingStatusRequest;
+import si.fri.prpo.bookingservice.dto.external.CalendarEventRequest;
+import si.fri.prpo.bookingservice.dto.external.CalendarEventResponse;
+import si.fri.prpo.bookingservice.dto.external.PaymentCheckoutRequest;
+import si.fri.prpo.bookingservice.dto.external.PaymentCheckoutResponse;
 import si.fri.prpo.bookingservice.entity.Booking;
 import si.fri.prpo.bookingservice.entity.Booking.BookingStatus;
 import si.fri.prpo.bookingservice.repository.BookingRepository;
@@ -23,6 +30,9 @@ import java.util.stream.Collectors;
 public class BookingService {
 
     private final BookingRepository bookingRepository;
+    private final PaymentClient paymentClient;
+    private final CalendarClient calendarClient;
+    private final NotificationClient notificationClient;
 
     @Transactional
     public BookingResponse createBooking(Long userId, BookingRequest request) {
@@ -57,6 +67,21 @@ public class BookingService {
 
         Booking savedBooking = bookingRepository.save(booking);
         log.info("Booking created successfully with ID: {}", savedBooking.getId());
+
+        // 5. Pošlji booking confirmation notification
+        try {
+            log.info("Attempting to send booking confirmation notification for booking {}", savedBooking.getId());
+            notificationClient.sendBookingConfirmation(
+                    userId,
+                    savedBooking.getId(),
+                    "user" + userId + "@example.com", // Mock email - kasneje iz Auth Service
+                    "Facility #" + request.getFacilityId(), // Mock name - kasneje iz Facility Service
+                    savedBooking.getStartTime().toString());
+            log.info("Booking confirmation notification sent successfully");
+        } catch (Exception e) {
+            log.error("Failed to send booking confirmation notification", e);
+            // Don't fail the booking if notification fails
+        }
 
         return mapToResponse(savedBooking);
     }
@@ -122,11 +147,89 @@ public class BookingService {
         // Validacija prehodov statusa
         validateStatusTransition(booking.getStatus(), request.getStatus());
 
+        BookingStatus oldStatus = booking.getStatus();
         booking.setStatus(request.getStatus());
         Booking updatedBooking = bookingRepository.save(booking);
 
-        log.info("Booking {} status updated to {}", bookingId, request.getStatus());
+        log.info("Booking {} status updated from {} to {}", bookingId, oldStatus, request.getStatus());
+
+        // Handle status transitions with integrations
+        if (request.getStatus() == BookingStatus.CONFIRMED && oldStatus == BookingStatus.PENDING) {
+            handleBookingConfirmed(updatedBooking);
+        }
+
         return mapToResponse(updatedBooking);
+    }
+
+    private void handleBookingConfirmed(Booking booking) {
+        log.info("Handling booking confirmation for booking {}", booking.getId());
+
+        // 1. Create payment checkout session
+        try {
+            PaymentCheckoutRequest paymentRequest = PaymentCheckoutRequest.builder()
+                    .bookingId(booking.getId())
+                    .userId(booking.getUserId())
+                    .amount(booking.getTotalPrice())
+                    .currency("EUR")
+                    .build();
+
+            PaymentCheckoutResponse paymentResponse = paymentClient.createCheckoutSession(paymentRequest);
+            log.info("Payment checkout session created: {}", paymentResponse.getSessionId());
+
+            // 2. Create Google Calendar event (don't wait for payment)
+            handleCalendarCreation(booking, paymentResponse.getId());
+
+        } catch (Exception e) {
+            log.error("Failed to create payment session for booking {}", booking.getId(), e);
+            // Don't fail the booking if payment creation fails
+        }
+    }
+
+    private void handleCalendarCreation(Booking booking, Long paymentId) {
+        log.info("Creating calendar event for booking {}", booking.getId());
+
+        try {
+            // 1. Create Google Calendar event
+            CalendarEventRequest calendarRequest = CalendarEventRequest.builder()
+                    .bookingId(booking.getId())
+                    .userId(booking.getUserId())
+                    .facilityId(booking.getFacilityId())
+                    .title("Booking #" + booking.getId() + " - Facility #" + booking.getFacilityId())
+                    .location("Facility #" + booking.getFacilityId()) // Mock - later from Facility Service
+                    .description("Reservation for facility. Total: " + booking.getTotalPrice() + " EUR")
+                    .startTime(booking.getStartTime())
+                    .endTime(booking.getEndTime())
+                    .build();
+
+            CalendarEventResponse calendarResponse = calendarClient.createCalendarEvent(calendarRequest);
+            log.info("Calendar event created: {}", calendarResponse.getId());
+
+            // 2. Send payment confirmation notification
+            log.info("Attempting to send payment confirmation notification");
+            notificationClient.sendPaymentConfirmation(
+                    booking.getUserId(),
+                    booking.getId(),
+                    paymentId,
+                    "user" + booking.getUserId() + "@example.com",
+                    booking.getTotalPrice().toString());
+            log.info("Payment confirmation notification sent");
+
+            // 3. Send calendar event created notification
+            log.info("Attempting to send calendar event notification");
+            notificationClient.sendCalendarEventCreated(
+                    booking.getUserId(),
+                    booking.getId(),
+                    calendarResponse.getId(),
+                    "user" + booking.getUserId() + "@example.com",
+                    "Facility #" + booking.getFacilityId());
+            log.info("Calendar event notification sent");
+
+            log.info("All integrations completed successfully for booking {}", booking.getId());
+
+        } catch (Exception e) {
+            log.error("Failed to create calendar event or send notifications for booking {}", booking.getId(), e);
+            // Don't fail the booking if calendar/notification fails
+        }
     }
 
     @Transactional
@@ -158,6 +261,17 @@ public class BookingService {
         bookingRepository.save(booking);
 
         log.info("Booking {} cancelled successfully", bookingId);
+
+        // Send cancellation notification
+        try {
+            notificationClient.sendBookingCancellation(
+                    userId,
+                    bookingId,
+                    "user" + userId + "@example.com",
+                    "Facility #" + booking.getFacilityId());
+        } catch (Exception e) {
+            log.error("Failed to send booking cancellation notification", e);
+        }
     }
 
     // Pomožne metode

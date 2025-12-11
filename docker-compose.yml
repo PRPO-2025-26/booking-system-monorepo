@@ -23,6 +23,20 @@ services:
     networks:
       - booking-network
 
+  # Mikrostoritve bodo dodan kasneje
+  # payment-service:
+  #   build: ./services/payment-service
+  #   container_name: payment-service
+  #   ports:
+  #     - "8083:8083"
+  #   environment:
+  #     SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/booking_system
+  #     STRIPE_API_KEY: ${STRIPE_API_KEY}
+  #   depends_on:
+  #     - postgres
+  #   networks:
+  #     - booking-network
+
 volumes:
   postgres_data:
 
