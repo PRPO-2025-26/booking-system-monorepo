@@ -25,6 +25,7 @@ To enable real Stripe payments:
 **Option A: Using application-local.properties (Recommended)**
 
 1. Copy the example file:
+
    ```bash
    cd services/payment-service/src/main/resources
    cp application-local.properties.example application-local.properties
@@ -51,6 +52,7 @@ export STRIPE_WEBHOOK_SECRET="whsec_your_actual_webhook_secret_here"
 #### 3. Disable Mock Mode
 
 Set in `application.properties` or environment:
+
 ```properties
 payment.mock-mode=false
 ```
@@ -71,6 +73,7 @@ payment.mock-mode=false
 ## Testing Payments
 
 ### Mock Mode
+
 ```http
 POST http://localhost:8083/api/payments/checkout
 POST http://localhost:8083/api/payments/mock/{sessionId}/complete
@@ -78,7 +81,9 @@ POST http://localhost:8083/api/payments/mock/{sessionId}/fail
 ```
 
 ### Stripe Test Mode
+
 Use Stripe test card numbers:
+
 - **Success:** `4242 4242 4242 4242`
 - **Decline:** `4000 0000 0000 0002`
 - **3D Secure:** `4000 0027 6000 3184`
