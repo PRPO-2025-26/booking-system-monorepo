@@ -1,0 +1,12 @@
+# Build outputs
+**/target/
+**/node_modules/
+dist/
+
+# Environment / secrets
+.env
+.env.local
+
+# IDE / misc
+.vscode/
+*.log
