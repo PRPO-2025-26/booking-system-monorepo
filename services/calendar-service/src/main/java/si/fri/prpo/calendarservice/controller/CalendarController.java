@@ -25,6 +25,13 @@ public class CalendarController {
         return ResponseEntity.ok("Calendar Service is running");
     }
 
+    // List all events (root endpoint used by SMOKE guide)
+    @GetMapping
+    public ResponseEntity<List<EventResponse>> getAllEvents() {
+        List<EventResponse> events = calendarEventService.getAllEvents();
+        return ResponseEntity.ok(events);
+    }
+
     @PostMapping("/events")
     public ResponseEntity<EventResponse> createEvent(@Valid @RequestBody EventRequest request) {
         log.info("Creating calendar event for booking {}", request.getBookingId());

@@ -1,0 +1,14 @@
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'booking_app') THEN
+        CREATE ROLE booking_app LOGIN PASSWORD 'booking_app_pass';
+    END IF;
+END $$;
+
+GRANT CONNECT ON DATABASE booking_system TO booking_app;
+GRANT USAGE ON SCHEMA public TO booking_app;
+GRANT CREATE ON SCHEMA public TO booking_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO booking_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO booking_app;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO booking_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO booking_app;

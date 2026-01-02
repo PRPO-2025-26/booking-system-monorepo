@@ -1,216 +1,126 @@
 # Booking System Monorepo
 
-**Rezervacijski sistem športnih objektov** (Sports Facility Booking System)
+[![CI/CD](https://github.com/PRPO-2025-26/booking-system-monorepo/actions/workflows/ci.yml/badge.svg)](https://github.com/PRPO-2025-26/booking-system-monorepo/actions/workflows/ci.yml)
 
-Mikrostoritvena aplikacija za rezervacijo športnih objektov, zgrajena z Spring Boot, PostgreSQL, Redis in Docker.
-
----
-
-## 🏗️ Arhitektura
-
-### Mikrostoritve
-
-| Service                  | Port | Opis                                | Status     |
-| ------------------------ | ---- | ----------------------------------- | ---------- |
-| **auth-service**         | 8080 | Avtentikacija uporabnikov (JWT)     | ✅ Running |
-| **facility-service**     | 8081 | Upravljanje športnih objektov       | ✅ Running |
-| **booking-service**      | 8082 | Rezervacije in upravljanje terminov | ✅ Running |
-| **payment-service**      | 8083 | Plačilni sistem (Stripe + Mock)     | ✅ Running |
-| **calendar-service**     | 8084 | Google Calendar integracija (Mock)  | ✅ Running |
-| **notification-service** | 8085 | Email/SMS obvestila (Mock)          | ✅ Running |
-
-### Infrastruktura
-
-- **PostgreSQL 15** - Port 5432 (Skupna baza: `booking_system`)
-- **Redis 7** - Port 6379 (JWT token storage & caching)
-- **Docker Compose** - Lokalno razvojno okolje
+Mikrostoritveni sistem za rezervacijo športnih objektov: Spring Boot (Java 17), React frontend, PostgreSQL, Docker/Kubernetes (GKE), CI/CD na GitHub Actions.
 
 ---
 
-## 🚀 Quick Start
+## 🏗️ Arhitektura (hitra tabela)
 
-### Predpogoji
+| Storitev             | Port | Namen                                     |
+| -------------------- | ---- | ----------------------------------------- |
+| auth-service         | 8080 | Avtentikacija, JWT                        |
+| facility-service     | 8081 | Upravljanje športnih objektov             |
+| booking-service      | 8082 | Rezervacije, orkestracija drugih storitev |
+| payment-service      | 8083 | Mock plačila in webhooki                  |
+| calendar-service     | 8084 | Google Calendar integracija (demo)        |
+| notification-service | 8085 | Mock obvestila (email/SMS)                |
+| frontend             | 80   | React UI (Nginx)                          |
 
-- Java 17+
-- Maven 3.9+
-- Docker Desktop
-- PostgreSQL 15 (via Docker)
+Infrastruktura: PostgreSQL 15 (PVC), GKE namespace `bookig`, ingress `booking.34.107.164.168.nip.io`, Artifact Registry `europe-west1-docker.pkg.dev/.../booking`.
 
-### 1. Zagon Infrastrukture
+---
+
+## 🌐 API & Swagger
+
+- Auth: `http://booking.34.107.164.168.nip.io/auth/swagger-ui.html`
+- Facility: `http://booking.34.107.164.168.nip.io/facility/swagger-ui.html`
+- Booking: `http://booking.34.107.164.168.nip.io/booking/swagger-ui.html`
+- Payment: `http://booking.34.107.164.168.nip.io/payment/swagger-ui.html`
+- Calendar: `http://booking.34.107.164.168.nip.io/calendar/swagger-ui.html`
+- Notification: `http://booking.34.107.164.168.nip.io/notification/swagger-ui.html`
+
+Zunanji API demo (booking-service): `GET /api/bookings/external/auth-check` (delegira na `external.api.url` z bearer tokenom).
+
+---
+
+## 🚀 Lokalni zagon (osnovni koraki)
+
+Predpogoji: Java 17, Maven 3.9+, Node 20+ (frontend), Docker za lokalno bazo.
+
+1. Baza:
 
 ```bash
-cd booking-system-monorepo
-docker-compose up -d
+docker-compose up -d postgres
 ```
 
-### 2. Preveri Docker Containers
+2. Servisi (ločeni terminali, primer):
 
 ```bash
-docker ps
+cd services/auth-service && ./mvnw spring-boot:run
+cd services/facility-service && ./mvnw spring-boot:run
+cd services/booking-service && ./mvnw spring-boot:run
+cd services/payment-service && ./mvnw spring-boot:run
+cd services/calendar-service && ./mvnw spring-boot:run
+cd services/notification-service && ./mvnw spring-boot:run
 ```
 
-Morali bi videti:
-
-- `booking-postgres` (port 5432)
-- `booking-redis` (port 6379)
-
-### 3. Zagon Mikroservisov
-
-#### Auth Service (Port 8080)
+3. Frontend (dev):
 
 ```bash
-cd services/auth-service
-mvn spring-boot:run
+cd client
+npm install
+npm run dev
 ```
 
-#### Facility Service (Port 8081)
+Podrobnejše API opise glej v `services/*/API_DOCUMENTATION.md` tam, kjer obstaja.
+
+---
+
+## ☸️ Kubernetes (GKE)
+
+- Manifesti: `infra/k8s/bookig.yaml` (Deployments/Services/Ingress), `infra/k8s/hpa.yaml` (HPA 1–3 replike, 70% CPU za auth/facility/booking/payment/calendar/notification)
+- Namespace: `bookig`
+- Ingress: `http://booking.34.107.164.168.nip.io/`
+
+Ročni deploy (če ne uporabljaš CI/CD):
 
 ```bash
-cd services/facility-service
-mvn spring-boot:run
+kubectl apply -f infra/k8s/bookig.yaml -n bookig
+kubectl apply -f infra/k8s/hpa.yaml -n bookig
+kubectl rollout status deployment/frontend -n bookig
 ```
 
-#### Booking Service (Port 8082)
+### Konfiguracija (env/Secret)
+
+- DB: `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`
+- JWT: `JWT_SECRET` (auth-service)
+- External API: `EXTERNAL_API_URL`, `EXTERNAL_API_TOKEN` (booking-service)
+- Optional per-service overrides: payment/calendar/notification URLs (`SERVICES_*`)
+
+V K8s nastavi kot Secret/ConfigMap in referenciraj v `bookig.yaml`.
+
+---
+
+## 🔄 CI/CD (GitHub Actions)
+
+- Workflow: `.github/workflows/ci.yml`
+- Test: `./mvnw -pl services/auth-service -am test` (ponovi za facility, booking)
+- Build & Push: Docker slike `auth/facility/booking/payment/calendar/notification/frontend` → GAR `booking`
+- Deploy: `kubectl apply -f infra/k8s/bookig.yaml -n bookig` + `kubectl apply -f infra/k8s/hpa.yaml -n bookig`
+
+Zahtevani GitHub Secrets: `GCP_SA_KEY`, `GCP_PROJECT`, `GKE_CLUSTER`, `GKE_LOCATION`.
+
+---
+
+## 🧪 Hitri cURL testi
 
 ```bash
-cd services/booking-service
-mvn spring-boot:run
-```
+# Health (primer booking-service)
+curl -I http://booking.34.107.164.168.nip.io/booking/actuator/health
 
-#### Payment Service (Port 8083)
-
-```bash
-cd services/payment-service
-./mvnw.cmd spring-boot:run
-# Mock mode enabled by default - no Stripe credentials required
-```
-
-#### Calendar Service (Port 8084)
-
-```bash
-cd services/calendar-service
-./mvnw.cmd spring-boot:run
-# Mock mode enabled by default - no Google Calendar credentials required
-```
-
-#### Notification Service (Port 8085)
-
-```bash
-cd services/notification-service
-./mvnw.cmd spring-boot:run
-# Mock mode enabled by default - no SMTP credentials required
+# Zunanji API check (zahteva token v podu)
+curl http://booking.34.107.164.168.nip.io/booking/api/bookings/external/auth-check
 ```
 
 ---
 
-## 📚 API Dokumentacija
+## 📝 Opombe
 
-### Auth Service - `/api/auth`
-
-- `POST /register` - Registracija uporabnika
-- `POST /login` - Prijava (vrne JWT token)
-
-[📖 Podrobna dokumentacija →](services/auth-service/API_DOCUMENTATION.md)
-
-### Facility Service - `/api/facilities`
-
-- `GET /` - Seznam vseh objektov
-- `GET /{id}` - Podrobnosti objekta
-- `POST /` - Dodaj nov objekt
-- `PUT /{id}` - Posodobi objekt
-- `DELETE /{id}` - Izbriši objekt
-- `GET /type/{type}` - Objekti po tipu
-- `GET /owner/{ownerId}` - Objekti po lastniku
-
-[📖 Podrobna dokumentacija →](services/facility-service/API_DOCUMENTATION.md)
-
-### Booking Service - `/api/bookings`
-
-- `POST /` - Ustvari rezervacijo
-- `GET /my` - Moje rezervacije
-- `GET /my/upcoming` - Prihodnje rezervacije
-- `GET /my/past` - Pretekle rezervacije
-- `GET /{id}` - Podrobnosti rezervacije
-- `GET /facility/{facilityId}` - Rezervacije po objektu
-- `PATCH /{id}/status` - Posodobi status
-- `DELETE /{id}` - Prekliči rezervacijo
-
-[📖 Podrobna dokumentacija →](services/booking-service/API_DOCUMENTATION.md)
-
-### Payment Service - `/api/payments`
-
-- `POST /checkout` - Ustvari Stripe checkout session
-- `GET /{id}` - Pridobi plačilo po ID
-- `GET /booking/{bookingId}` - Plačilo za booking
-- `GET /user/{userId}` - Vsa uporabnikova plačila
-- `GET /session/{sessionId}` - Pridobi po session ID
-- `GET /{id}/status` - Status plačila
-- `POST /{id}/cancel` - Prekliči plačilo
-- `POST /mock/{sessionId}/complete` - Mock: Potrdi plačilo (testing)
-- `POST /mock/{sessionId}/fail` - Mock: Zavrni plačilo (testing)
-
-[📖 Podrobna dokumentacija →](services/payment-service/API_DOCUMENTATION.md)
-
-### Calendar Service - `/api/calendar`
-
-- `POST /events` - Ustvari Google Calendar event
-- `GET /events/{id}` - Pridobi event po ID
-- `GET /events/booking/{bookingId}` - Event za booking
-- `GET /events/user/{userId}` - Vsi uporabnikovi eventi
-- `GET /events/user/{userId}/upcoming` - Prihajajoči eventi
-- `PUT /events/{id}` - Posodobi event
-- `POST /events/{id}/cancel` - Prekliči event
-- `DELETE /events/{id}` - Izbriši event
-
-[📖 Podrobna dokumentacija →](services/calendar-service/API_DOCUMENTATION.md)
-
-### Notification Service - `/api/notifications`
-
-- `POST /` - Pošlji obvestilo (email/SMS)
-- `GET /{id}` - Pridobi obvestilo po ID
-- `GET /user/{userId}` - Vsa uporabnikova obvestila
-- `GET /booking/{bookingId}` - Obvestila za booking
-- `GET /payment/{paymentId}` - Obvestila za plačilo
-- `GET /event/{eventId}` - Obvestila za event
-- `POST /{id}/retry` - Ponovno pošlji obvestilo
-
-[📖 Podrobna dokumentacija →](services/notification-service/README.md)
-
----
-
-## 🧪 Testiranje (Postman)
-
-### 1. Registracija Uporabnika
-
-```http
-POST http://localhost:8080/api/auth/register
-Content-Type: application/json
-
-{
-  "username": "janez",
-  "email": "janez@example.com",
-  "password": "geslo123",
-  "role": "USER"
-}
-```
-
-**Response:** `201 Created` z `userId`
-
----
-
-### 2. Prijava
-
-```http
-POST http://localhost:8080/api/auth/login
-Content-Type: application/json
-
-{
-  "username": "janez",
-  "password": "geslo123"
-}
-```
-
-**Response:** `200 OK` z JWT `token`
+- Zunanja integracija: booking-service → `external.api.url` z bearer tokenom.
+- Skaliranje: HPAs za auth/facility/booking/payment/calendar/notification (1–3 replike, 70% CPU), Ingress na GCE LB.
+- CI/CD: test → build/push GAR → deploy na GKE na `main`.
 
 ---
 

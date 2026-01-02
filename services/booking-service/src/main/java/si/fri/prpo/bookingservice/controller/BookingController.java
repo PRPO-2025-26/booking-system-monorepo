@@ -6,12 +6,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import si.fri.prpo.bookingservice.client.ExternalAuthApiClient;
 import si.fri.prpo.bookingservice.dto.BookingRequest;
 import si.fri.prpo.bookingservice.dto.BookingResponse;
 import si.fri.prpo.bookingservice.dto.UpdateBookingStatusRequest;
 import si.fri.prpo.bookingservice.service.BookingService;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/bookings")
@@ -20,6 +22,7 @@ import java.util.List;
 public class BookingController {
 
     private final BookingService bookingService;
+    private final ExternalAuthApiClient externalAuthApiClient;
 
     /**
      * Ustvari novo rezervacijo
@@ -128,5 +131,15 @@ public class BookingController {
         log.info("Cancelling booking {} by user {}", id, userId);
         bookingService.cancelBooking(id, userId);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Demonstrates an authenticated call to an external API (Bearer token)
+     * GET /api/bookings/external/auth-check
+     */
+    @GetMapping("/external/auth-check")
+    public ResponseEntity<Map<String, Object>> externalAuthCheck() {
+        Map<String, Object> payload = externalAuthApiClient.getAuthStatus();
+        return ResponseEntity.ok(Map.of("status", "ok", "externalResponse", payload));
     }
 }

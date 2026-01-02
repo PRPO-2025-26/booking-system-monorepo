@@ -74,6 +74,13 @@ public class CalendarEventService {
     }
 
     @Transactional(readOnly = true)
+    public List<EventResponse> getAllEvents() {
+        return eventRepository.findAll().stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
     public EventResponse getEventById(Long id) {
         CalendarEvent event = eventRepository.findById(id)
                 .orElseThrow(() -> new EventNotFoundException("Event not found with ID: " + id));

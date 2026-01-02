@@ -37,4 +37,11 @@ public class WebClientConfig {
                 .baseUrl(notificationServiceUrl)
                 .build();
     }
+
+    @Bean("externalAuthWebClient")
+    public WebClient externalAuthWebClient(@Value("${external.api.url}") String externalApiUrl) {
+        return WebClient.builder()
+                .baseUrl(externalApiUrl)
+                .build();
+    }
 }

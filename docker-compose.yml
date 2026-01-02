@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:15-alpine
@@ -12,6 +10,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./infra/db/init-app-user.sql:/docker-entrypoint-initdb.d/init-app-user.sql:ro
     networks:
       - booking-network
 
@@ -20,6 +19,159 @@ services:
     container_name: booking-redis
     ports:
       - "6379:6379"
+    networks:
+      - booking-network
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: services/auth-service/Dockerfile
+    container_name: auth-service
+    env_file:
+      - .env
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/booking_system
+      SPRING_DATASOURCE_USERNAME: ${DB_APP_USER:-booking_app}
+      SPRING_DATASOURCE_PASSWORD: ${DB_APP_PASSWORD:-booking_app_pass}
+      SPRING_REDIS_HOST: redis
+    depends_on:
+      - postgres
+      - redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - booking-network
+
+  facility-service:
+    build:
+      context: .
+      dockerfile: services/facility-service/Dockerfile
+    container_name: facility-service
+    env_file:
+      - .env
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/booking_system
+      SPRING_DATASOURCE_USERNAME: ${DB_APP_USER:-booking_app}
+      SPRING_DATASOURCE_PASSWORD: ${DB_APP_PASSWORD:-booking_app_pass}
+    depends_on:
+      - postgres
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - booking-network
+
+  booking-service:
+    build:
+      context: .
+      dockerfile: services/booking-service/Dockerfile
+    container_name: booking-service
+    env_file:
+      - .env
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/booking_system
+      SPRING_DATASOURCE_USERNAME: ${DB_APP_USER:-booking_app}
+      SPRING_DATASOURCE_PASSWORD: ${DB_APP_PASSWORD:-booking_app_pass}
+      SERVICES_PAYMENT_URL: http://payment-service:8083/api/payments
+      SERVICES_CALENDAR_URL: http://calendar-service:8084/api/calendar
+      SERVICES_NOTIFICATION_URL: http://notification-service:8085/api/notifications
+    depends_on:
+      - postgres
+      - payment-service
+      - calendar-service
+      - notification-service
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8082/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - booking-network
+
+  payment-service:
+    build:
+      context: .
+      dockerfile: services/payment-service/Dockerfile
+    container_name: payment-service
+    env_file:
+      - .env
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/booking_system
+      SPRING_DATASOURCE_USERNAME: ${DB_APP_USER:-booking_app}
+      SPRING_DATASOURCE_PASSWORD: ${DB_APP_PASSWORD:-booking_app_pass}
+      STRIPE_API_KEY: ${STRIPE_API_KEY:-your_stripe_test_key_here}
+    depends_on:
+      - postgres
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - booking-network
+
+  calendar-service:
+    build:
+      context: .
+      dockerfile: services/calendar-service/Dockerfile
+    container_name: calendar-service
+    env_file:
+      - .env
+    ports:
+      - "8084:8084"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/booking_system
+      SPRING_DATASOURCE_USERNAME: ${DB_APP_USER:-booking_app}
+      SPRING_DATASOURCE_PASSWORD: ${DB_APP_PASSWORD:-booking_app_pass}
+    depends_on:
+      - postgres
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8084/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - booking-network
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: services/notification-service/Dockerfile
+    container_name: notification-service
+    env_file:
+      - .env
+    ports:
+      - "8085:8085"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/booking_system
+      SPRING_DATASOURCE_USERNAME: ${DB_APP_USER:-booking_app}
+      SPRING_DATASOURCE_PASSWORD: ${DB_APP_PASSWORD:-booking_app_pass}
+    depends_on:
+      - postgres
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8085/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     networks:
       - booking-network
 

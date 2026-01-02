@@ -1,0 +1,63 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: facility-service
+  labels:
+    app: facility-service
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8081
+      targetPort: 8081
+  selector:
+    app: facility-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: facility-service
+  labels:
+    app: facility-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: facility-service
+  template:
+    metadata:
+      labels:
+        app: facility-service
+    spec:
+      containers:
+        - name: app
+          image: ut4228/booking-facility-service:1.0.0
+          ports:
+            - containerPort: 8081
+          env:
+            - name: SPRING_DATASOURCE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: SPRING_DATASOURCE_URL
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: SPRING_DATASOURCE_USERNAME
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: SPRING_DATASOURCE_PASSWORD
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8081
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8081
+            initialDelaySeconds: 20
+            periodSeconds: 20

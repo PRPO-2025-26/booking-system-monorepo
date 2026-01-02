@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  labels:
+    app: booking
+data:
+  SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/booking_system
+  SPRING_REDIS_HOST: redis

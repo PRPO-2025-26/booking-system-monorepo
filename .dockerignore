@@ -1,0 +1,22 @@
+# Maven / build
+**/target/
+**/pom.xml.tag
+**/pom.xml.releaseBackup
+**/pom.xml.versionsBackup
+**/.mvn/timing.properties
+**/.mvn/wrapper/maven-wrapper.jar
+
+# IDE
+**/.idea/
+**/.vscode/
+**/*.iml
+
+# Node
+**/node_modules/
+
+# Git
+.git
+.gitignore
+
+# Logs
+**/*.log

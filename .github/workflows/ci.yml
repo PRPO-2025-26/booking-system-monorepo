@@ -1,0 +1,120 @@
+name: CI/CD
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    name: Maven tests (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - auth-service
+          - facility-service
+          - booking-service
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Cache Maven repository
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2-
+
+      - name: Make mvnw executable
+        run: chmod +x mvnw
+
+      - name: Run tests for ${{ matrix.service }}
+        run: ./mvnw -pl services/${{ matrix.service }} -am test
+
+  build-and-push:
+    name: Build & Push images (GAR)
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && secrets.GCP_SA_KEY != ''
+    env:
+      GCP_PROJECT: ${{ secrets.GCP_PROJECT }}
+      GAR_HOST: europe-west1-docker.pkg.dev
+      GAR_REPO: booking
+      GAR_LOCATION: europe-west1
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Auth to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up gcloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT }}
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker $GAR_HOST --quiet
+
+      - name: Build and push service images
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          services=(auth-service facility-service booking-service)
+          for svc in "${services[@]}"; do
+            docker build -f services/${svc}/Dockerfile -t $GAR_HOST/$GCP_PROJECT/$GAR_REPO/${svc}:latest -t $GAR_HOST/$GCP_PROJECT/$GAR_REPO/${svc}:${IMAGE_TAG} .
+            docker push $GAR_HOST/$GCP_PROJECT/$GAR_REPO/${svc}:latest
+            docker push $GAR_HOST/$GCP_PROJECT/$GAR_REPO/${svc}:${IMAGE_TAG}
+          done
+
+      - name: Build and push frontend image
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -f client/Dockerfile -t $GAR_HOST/$GCP_PROJECT/$GAR_REPO/frontend:latest -t $GAR_HOST/$GCP_PROJECT/$GAR_REPO/frontend:${IMAGE_TAG} client
+          docker push $GAR_HOST/$GCP_PROJECT/$GAR_REPO/frontend:latest
+          docker push $GAR_HOST/$GCP_PROJECT/$GAR_REPO/frontend:${IMAGE_TAG}
+
+  deploy:
+    name: Deploy to GKE
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && secrets.GCP_SA_KEY != ''
+    env:
+      GCP_PROJECT: ${{ secrets.GCP_PROJECT }}
+      GKE_CLUSTER: ${{ secrets.GKE_CLUSTER }}
+      GKE_LOCATION: ${{ secrets.GKE_LOCATION }}
+      GKE_NAMESPACE: bookig
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Auth to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up gcloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT }}
+
+      - name: Get GKE credentials
+        run: gcloud container clusters get-credentials $GKE_CLUSTER --region $GKE_LOCATION --project $GCP_PROJECT
+
+      - name: Apply manifests
+        run: |
+          kubectl apply -f infra/k8s/bookig.yaml
+          kubectl apply -f infra/k8s/hpa.yaml
+
+      - name: Verify rollout
+        run: kubectl rollout status deploy/frontend -n $GKE_NAMESPACE

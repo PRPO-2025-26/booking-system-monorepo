@@ -1,0 +1,826 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: bookig
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: bookig-secrets
+  namespace: bookig
+stringData:
+  POSTGRES_DB: booking_system
+  POSTGRES_USER: admin
+  POSTGRES_PASSWORD: admin123
+  JWT_SECRET: "404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: bookig
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: standard
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: bookig
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:15
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: bookig-secrets
+                  key: POSTGRES_DB
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: bookig-secrets
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: bookig-secrets
+                  key: POSTGRES_PASSWORD
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: postgres-data
+          persistentVolumeClaim:
+            claimName: postgres-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: bookig
+spec:
+  type: ClusterIP
+  selector:
+    app: postgres
+  ports:
+    - name: db
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+  namespace: bookig
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth-service
+  template:
+    metadata:
+      labels:
+        app: auth-service
+    spec:
+      containers:
+        - name: auth-service
+          image: europe-west1-docker.pkg.dev/bold-momentum-482522-m8/booking/auth-service:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://postgres.bookig.svc.cluster.local:5432/booking_system
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: bookig-secrets
+                  key: POSTGRES_USER
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: bookig-secrets
+                  key: POSTGRES_PASSWORD
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: bookig-secrets
+                  key: JWT_SECRET
+            - name: SPRINGDOC_SWAGGER_UI_PATH
+              value: /auth/swagger-ui.html
+            - name: SPRINGDOC_API_DOCS_PATH
+              value: /auth/v3/api-docs
+            - name: MANAGEMENT_ENDPOINTS_WEB_BASE_PATH
+              value: /auth/actuator
+          readinessProbe:
+            httpGet:
+              path: /auth/actuator/health/readiness
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /auth/actuator/health/liveness
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+  namespace: bookig
+  annotations:
+    cloud.google.com/backend-config: '{"ports": {"http": "auth-backend-config"}}'
+spec:
+  type: ClusterIP
+  selector:
+    app: auth-service
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: auth-backend-config
+  namespace: bookig
+spec:
+  healthCheck:
+    checkIntervalSec: 15
+    timeoutSec: 5
+    healthyThreshold: 1
+    unhealthyThreshold: 3
+    type: HTTP
+    port: 8080
+    requestPath: /auth/actuator/health/readiness
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: facility-service
+  namespace: bookig
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: facility-service
+  template:
+    metadata:
+      labels:
+        app: facility-service
+    spec:
+      containers:
+        - name: facility-service
+          image: europe-west1-docker.pkg.dev/bold-momentum-482522-m8/booking/facility-service:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8081
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://postgres.bookig.svc.cluster.local:5432/booking_system
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: bookig-secrets
+                  key: POSTGRES_USER
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: bookig-secrets
+                  key: POSTGRES_PASSWORD
+            - name: SPRINGDOC_SWAGGER_UI_PATH
+              value: /facility/swagger-ui.html
+            - name: SPRINGDOC_API_DOCS_PATH
+              value: /facility/v3/api-docs
+            - name: MANAGEMENT_ENDPOINTS_WEB_BASE_PATH
+              value: /facility/actuator
+          readinessProbe:
+            httpGet:
+              path: /facility/actuator/health/readiness
+              port: 8081
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /facility/actuator/health/liveness
+              port: 8081
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: facility-service
+  namespace: bookig
+  annotations:
+    cloud.google.com/backend-config: '{"ports": {"http": "facility-backend-config"}}'
+spec:
+  type: ClusterIP
+  selector:
+    app: facility-service
+  ports:
+    - name: http
+      port: 8081
+      targetPort: 8081
+---
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: facility-backend-config
+  namespace: bookig
+spec:
+  healthCheck:
+    checkIntervalSec: 15
+    timeoutSec: 5
+    healthyThreshold: 1
+    unhealthyThreshold: 3
+    type: HTTP
+    port: 8081
+    requestPath: /facility/actuator/health/readiness
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: booking-service
+  namespace: bookig
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: booking-service
+  template:
+    metadata:
+      labels:
+        app: booking-service
+    spec:
+      containers:
+        - name: booking-service
+          image: europe-west1-docker.pkg.dev/bold-momentum-482522-m8/booking/booking-service:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8082
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://postgres.bookig.svc.cluster.local:5432/booking_system
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: bookig-secrets
+                  key: POSTGRES_USER
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: bookig-secrets
+                  key: POSTGRES_PASSWORD
+            - name: SERVICES_PAYMENT_URL
+              value: http://payment-service:8083/api/payments
+            - name: SERVICES_CALENDAR_URL
+              value: http://calendar-service:8084/api/calendar
+            - name: SERVICES_NOTIFICATION_URL
+              value: http://notification-service:8085/api/notifications
+            - name: SPRINGDOC_SWAGGER_UI_PATH
+              value: /booking/swagger-ui.html
+            - name: SPRINGDOC_API_DOCS_PATH
+              value: /booking/v3/api-docs
+            - name: MANAGEMENT_ENDPOINTS_WEB_BASE_PATH
+              value: /booking/actuator
+          startupProbe:
+            httpGet:
+              path: /booking/actuator/health/liveness
+              port: 8082
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            failureThreshold: 12
+          readinessProbe:
+            httpGet:
+              path: /booking/actuator/health/readiness
+              port: 8082
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /booking/actuator/health/liveness
+              port: 8082
+            initialDelaySeconds: 90
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: booking-service
+  namespace: bookig
+  annotations:
+    cloud.google.com/backend-config: '{"ports": {"http": "booking-backend-config"}}'
+spec:
+  type: ClusterIP
+  selector:
+    app: booking-service
+  ports:
+    - name: http
+      port: 8082
+      targetPort: 8082
+---
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: booking-backend-config
+  namespace: bookig
+spec:
+  healthCheck:
+    checkIntervalSec: 15
+    timeoutSec: 5
+    healthyThreshold: 1
+    unhealthyThreshold: 3
+    type: HTTP
+    port: 8082
+    requestPath: /booking/actuator/health/readiness
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-service
+  namespace: bookig
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payment-service
+  template:
+    metadata:
+      labels:
+        app: payment-service
+    spec:
+      containers:
+        - name: payment-service
+          image: europe-west1-docker.pkg.dev/bold-momentum-482522-m8/booking/payment-service:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8083
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://postgres.bookig.svc.cluster.local:5432/booking_system
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: bookig-secrets
+                  key: POSTGRES_USER
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: bookig-secrets
+                  key: POSTGRES_PASSWORD
+            - name: SPRINGDOC_SWAGGER_UI_PATH
+              value: /payment/swagger-ui.html
+            - name: SPRINGDOC_API_DOCS_PATH
+              value: /payment/v3/api-docs
+            - name: MANAGEMENT_ENDPOINTS_WEB_BASE_PATH
+              value: /payment/actuator
+          readinessProbe:
+            httpGet:
+              path: /payment/actuator/health/readiness
+              port: 8083
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /payment/actuator/health/liveness
+              port: 8083
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment-service
+  namespace: bookig
+  annotations:
+    cloud.google.com/backend-config: '{"ports": {"http": "payment-backend-config"}}'
+spec:
+  type: ClusterIP
+  selector:
+    app: payment-service
+  ports:
+    - name: http
+      port: 8083
+      targetPort: 8083
+---
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: payment-backend-config
+  namespace: bookig
+spec:
+  healthCheck:
+    checkIntervalSec: 15
+    timeoutSec: 5
+    healthyThreshold: 1
+    unhealthyThreshold: 3
+    type: HTTP
+    port: 8083
+    requestPath: /payment/actuator/health/readiness
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: calendar-service
+  namespace: bookig
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: calendar-service
+  template:
+    metadata:
+      labels:
+        app: calendar-service
+    spec:
+      containers:
+        - name: calendar-service
+          image: europe-west1-docker.pkg.dev/bold-momentum-482522-m8/booking/calendar-service:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8084
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://postgres.bookig.svc.cluster.local:5432/booking_system
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: bookig-secrets
+                  key: POSTGRES_USER
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: bookig-secrets
+                  key: POSTGRES_PASSWORD
+            - name: SPRINGDOC_SWAGGER_UI_PATH
+              value: /calendar/swagger-ui.html
+            - name: SPRINGDOC_API_DOCS_PATH
+              value: /calendar/v3/api-docs
+            - name: MANAGEMENT_ENDPOINTS_WEB_BASE_PATH
+              value: /calendar/actuator
+          readinessProbe:
+            httpGet:
+              path: /calendar/actuator/health/readiness
+              port: 8084
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /calendar/actuator/health/liveness
+              port: 8084
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: calendar-service
+  namespace: bookig
+  annotations:
+    cloud.google.com/backend-config: '{"ports": {"http": "calendar-backend-config"}}'
+spec:
+  type: ClusterIP
+  selector:
+    app: calendar-service
+  ports:
+    - name: http
+      port: 8084
+      targetPort: 8084
+---
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: calendar-backend-config
+  namespace: bookig
+spec:
+  healthCheck:
+    checkIntervalSec: 15
+    timeoutSec: 5
+    healthyThreshold: 1
+    unhealthyThreshold: 3
+    type: HTTP
+    port: 8084
+    requestPath: /calendar/actuator/health/readiness
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service
+  namespace: bookig
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notification-service
+  template:
+    metadata:
+      labels:
+        app: notification-service
+    spec:
+      containers:
+        - name: notification-service
+          image: europe-west1-docker.pkg.dev/bold-momentum-482522-m8/booking/notification-service:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8085
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://postgres.bookig.svc.cluster.local:5432/booking_system
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: bookig-secrets
+                  key: POSTGRES_USER
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: bookig-secrets
+                  key: POSTGRES_PASSWORD
+            - name: SPRINGDOC_SWAGGER_UI_PATH
+              value: /notification/swagger-ui.html
+            - name: SPRINGDOC_API_DOCS_PATH
+              value: /notification/v3/api-docs
+            - name: MANAGEMENT_ENDPOINTS_WEB_BASE_PATH
+              value: /notification/actuator
+          readinessProbe:
+            httpGet:
+              path: /notification/actuator/health/readiness
+              port: 8085
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /notification/actuator/health/liveness
+              port: 8085
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-service
+  namespace: bookig
+  annotations:
+    cloud.google.com/backend-config: '{"ports": {"http": "notification-backend-config"}}'
+spec:
+  type: ClusterIP
+  selector:
+    app: notification-service
+  ports:
+    - name: http
+      port: 8085
+      targetPort: 8085
+---
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: notification-backend-config
+  namespace: bookig
+spec:
+  healthCheck:
+    checkIntervalSec: 15
+    timeoutSec: 5
+    healthyThreshold: 1
+    unhealthyThreshold: 3
+    type: HTTP
+    port: 8085
+    requestPath: /notification/actuator/health/readiness
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: bookig
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: europe-west1-docker.pkg.dev/bold-momentum-482522-m8/booking/frontend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 300m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: bookig
+spec:
+  type: ClusterIP
+  selector:
+    app: frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: bookig-ingress
+  namespace: bookig
+  annotations:
+    kubernetes.io/ingress.class: "gce"
+    # Set a managed certificate after replacing the host if you want TLS:
+    # networking.gke.io/managed-certificates: bookig-cert
+spec:
+  ingressClassName: gce
+  defaultBackend:
+    service:
+      name: frontend
+      port:
+        number: 80
+  rules:
+    - host: booking.34.107.164.168.nip.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
+          - path: /auth
+            pathType: Prefix
+            backend:
+              service:
+                name: auth-service
+                port:
+                  number: 8080
+          - path: /api/auth
+            pathType: Prefix
+            backend:
+              service:
+                name: auth-service
+                port:
+                  number: 8080
+          - path: /facility
+            pathType: Prefix
+            backend:
+              service:
+                name: facility-service
+                port:
+                  number: 8081
+          - path: /api/facilities
+            pathType: Prefix
+            backend:
+              service:
+                name: facility-service
+                port:
+                  number: 8081
+          - path: /booking
+            pathType: Prefix
+            backend:
+              service:
+                name: booking-service
+                port:
+                  number: 8082
+          - path: /api/bookings
+            pathType: Prefix
+            backend:
+              service:
+                name: booking-service
+                port:
+                  number: 8082
+          - path: /payment
+            pathType: Prefix
+            backend:
+              service:
+                name: payment-service
+                port:
+                  number: 8083
+          - path: /api/payments
+            pathType: Prefix
+            backend:
+              service:
+                name: payment-service
+                port:
+                  number: 8083
+          - path: /calendar
+            pathType: Prefix
+            backend:
+              service:
+                name: calendar-service
+                port:
+                  number: 8084
+          - path: /api/calendar
+            pathType: Prefix
+            backend:
+              service:
+                name: calendar-service
+                port:
+                  number: 8084
+          - path: /notification
+            pathType: Prefix
+            backend:
+              service:
+                name: notification-service
+                port:
+                  number: 8085
+          - path: /api/notifications
+            pathType: Prefix
+            backend:
+              service:
+                name: notification-service
+                port:
+                  number: 8085

@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS calendar_events (
+    id BIGSERIAL PRIMARY KEY,
+    booking_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    facility_id BIGINT NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    description VARCHAR(1000),
+    start_time TIMESTAMP NOT NULL,
+    end_time TIMESTAMP NOT NULL,
+    location VARCHAR(500),
+    google_event_id VARCHAR(255) UNIQUE,
+    google_calendar_id VARCHAR(500),
+    google_event_link VARCHAR(1000),
+    status VARCHAR(20) NOT NULL DEFAULT 'SCHEDULED',
+    sync_status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    last_synced_at TIMESTAMP,
+    sync_error_message VARCHAR(500),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
