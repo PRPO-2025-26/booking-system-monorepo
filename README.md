@@ -93,6 +93,14 @@ V K8s nastavi kot Secret/ConfigMap in referenciraj v `bookig.yaml`.
 
 ---
 
+## 🪵 Branching strategija
+
+- Glavna veja: `main` (CI/CD: test → build/push → deploy na GKE).
+- Razvojna veja: `dev` (CI: testi; brez deploya). Predlagan potek: PR iz `dev` v `main` sproži celoten CI/CD.
+- Za večje spremembe uporabljajte feature veje (npr. `feature/xyz`) in odpirajte PR v `dev`.
+
+---
+
 ## 🔄 CI/CD (GitHub Actions)
 
 - Workflow: `.github/workflows/ci.yml`
@@ -101,6 +109,14 @@ V K8s nastavi kot Secret/ConfigMap in referenciraj v `bookig.yaml`.
 - Deploy: `kubectl apply -f infra/k8s/bookig.yaml -n bookig` + `kubectl apply -f infra/k8s/hpa.yaml -n bookig`
 
 Zahtevani GitHub Secrets: `GCP_SA_KEY`, `GCP_PROJECT`, `GKE_CLUSTER`, `GKE_LOCATION`.
+
+---
+
+## 🧭 Lokalni Kubernetes ingress
+
+- Za lokalno gruče je na voljo ingress v `k8s/ingress.yaml` z gostiteljem `booking.local`.
+- TLS certifikata za lokalni razvoj sta priložena (`booking.local.pem`, `booking.local-key.pem`). Ustvarite Kubernetes Secret in referencirajte ga v `k8s/ingress.yaml` (polje `secretName: booking-local-tls`).
+- Lokalni ingress uporablja poti `/auth`, `/facilities`, `/bookings`, `/payments`, `/calendar`, `/notifications`, usklajene z `springdoc.swagger-ui.path` in `management.endpoints.web.base-path` nastavitev vsake storitve.
 
 ---
 
