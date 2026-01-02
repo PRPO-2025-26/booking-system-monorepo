@@ -1,5 +1,6 @@
 import React from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
+import { ErrorBoundary } from "./ErrorBoundary";
 import "./Layout.css";
 
 const navItems = [
@@ -34,7 +35,9 @@ export const Layout: React.FC = () => {
         </nav>
       </header>
       <main className="content">
-        <Outlet />
+        <ErrorBoundary>
+          <Outlet />
+        </ErrorBoundary>
       </main>
       <footer className="footer">© {new Date().getFullYear()} PRPO</footer>
     </div>

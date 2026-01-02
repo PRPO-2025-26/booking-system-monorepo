@@ -50,13 +50,36 @@ export type CalendarEvent = {
   id?: number;
   bookingId: number;
   userId: number;
-  summary: string;
+  facilityId: number;
+  title: string;
   location?: string;
   description?: string;
-  startDateTime: string;
-  endDateTime: string;
-  timeZone: string;
+  startTime: string;
+  endTime: string;
   status?: string;
+};
+
+export async function fetchCalendarEventsByUser(
+  userId: number
+): Promise<CalendarEvent[]> {
+  const res = await fetch(`${CALENDAR_API_BASE}/events/user/${userId}`);
+  if (!res.ok) {
+    throw new Error(
+      (await res.text()) || `Failed to load calendar events (${res.status})`
+    );
+  }
+  return (await res.json()) as CalendarEvent[];
+}
+
+export type CreateCalendarEventPayload = {
+  bookingId: number;
+  userId: number;
+  facilityId: number;
+  title: string;
+  location?: string;
+  description?: string;
+  startTime: string;
+  endTime: string;
 };
 
 export type PaymentCheckoutRequest = {
@@ -162,7 +185,7 @@ export async function createBooking(
 }
 
 export async function createCalendarEvent(
-  payload: CalendarEvent
+  payload: CreateCalendarEventPayload
 ): Promise<CalendarEvent> {
   const res = await fetch(`${CALENDAR_API_BASE}/events`, {
     method: "POST",

@@ -52,8 +52,8 @@ export const PaymentsPage: React.FC = () => {
     <div className="card">
       <h2>Payments (mock demo)</h2>
       <p style={{ color: "#9ca6c7" }}>
-        Calls payment-service `/api/payments/checkout` then `/mock/{sessionId}
-        /complete`.
+        Calls payment-service `/api/payments/checkout` then `/mock/
+        {checkout?.sessionId ?? "{sessionId}"}/complete`.
       </p>
       <form className="grid grid-2" style={{ gap: 12 }} onSubmit={submit}>
         <label>

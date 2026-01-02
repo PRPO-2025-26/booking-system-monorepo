@@ -26,8 +26,7 @@ export const HomePage: React.FC = () => {
         <h3>Status</h3>
         <div className="badge">Frontend ↔ APIs connected</div>
         <p style={{ marginTop: 12, color: "#9ca6c7" }}>
-          If you hit CORS errors, restart the backend containers to pick up the
-          CORS config changes.
+          All services are reachable.
         </p>
       </div>
     </div>
