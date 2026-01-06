@@ -45,6 +45,8 @@ Predpogoji: Java 17, Maven 3.9+, Node 20+ (frontend), Docker za lokalno bazo.
 docker-compose up -d postgres
 ```
 
+_(Alternativa: za celoten stack – aplikacije + bazo – lahko poženeš `docker-compose up -d`, če želiš vse servise v kontejnerjih.)_
+
 2. Servisi (ločeni terminali, primer):
 
 ```bash
@@ -480,85 +482,5 @@ booking-system-monorepo/
 │       │       └── exception/
 │       └── pom.xml
 │
-└── client/                    # Frontend (React) - Planned
+└── client/                    # Frontend (React, Vite → Nginx image)
 ```
-
----
-
-## ✅ Current Progress
-
-### Completed ✅
-
-- [x] Monorepo structure
-- [x] Docker Compose setup (PostgreSQL + Redis)
-- [x] Auth-service (User registration, login, JWT)
-- [x] Facility-service (CRUD for sports facilities)
-- [x] Booking-service (Reservation system with conflict detection)
-- [x] Payment-service (Stripe integration + Mock mode)
-- [x] Calendar-service (Google Calendar integration + Mock mode)
-- [x] Notification-service (Email/SMS notifications + Mock mode)
-- [x] **Service integration** (Booking → Payment → Calendar → Notification flow)
-- [x] API documentation for all services
-- [x] Error handling & validation
-
-### In Progress 🔄
-
-- [ ] Docker Compose update (add all 6 services)
-- [ ] API Gateway implementation
-- [ ] Payment webhooks (Stripe callbacks)
-
-### Planned 🔜
-
-- [ ] React frontend
-- [ ] Kubernetes deployment
-- [ ] CI/CD pipeline (GitHub Actions)
-- [ ] Full integration testing
-
----
-
-## 🐛 Troubleshooting
-
-### Maven "spring-boot plugin not found"
-
-**Problem:** Running `mvn spring-boot:run` from wrong directory
-
-**Rešitev:**
-
-```bash
-cd C:\Users\Administrator\Documents\PRPO\booking-system-monorepo\services\booking-service
-mvn spring-boot:run
-```
-
-### Docker containers not running
-
-**Problem:** PostgreSQL not accessible
-
-**Rešitev:**
-
-```bash
-docker-compose down
-docker-compose up -d
-docker ps  # Verify containers are running
-```
-
-### VS Code Java errors
-
-**Problem:** Red squiggly lines in Java files
-
-**Rešitev:**
-
-1. `Ctrl+Shift+P` → "Java: Clean Java Language Server Workspace"
-2. Run `mvn clean install`
-3. Restart VS Code
-
----
-
-## 📞 Support
-
-Za vprašanja ali težave odprite GitHub Issue.
-
----
-
-## 📄 License
-
-MIT License - see [LICENSE](LICENSE) file for details.
