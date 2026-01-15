@@ -80,7 +80,8 @@ jobs:
         run: |
           TOKEN="$(gcloud auth print-access-token)"
           kubectl config set-credentials gcp --token="${TOKEN}"
-          kubectl config set-context --current --user=gcp
+          CTX="$(kubectl config current-context)"
+          kubectl config set-context "${CTX}" --user=gcp
 
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker $GAR_HOST --quiet
