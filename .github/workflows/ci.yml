@@ -73,18 +73,14 @@ jobs:
         with:
           project_id: ${{ env.GCP_PROJECT }}
 
-      - name: Install GKE auth plugin
+
+      # Avoid relying on gke-gcloud-auth-plugin (not available on some ubuntu-latest images)
+      # by generating an access token and wiring kubectl auth explicitly.
+      - name: Configure kubectl auth
         run: |
-          set -e
-          # Ubuntu 24.04 runners don't have the old package name in apt.
-          # Prefer gcloud component install, then fall back to apt when available.
-          if gcloud components list 1>/dev/null 2>&1; then
-            gcloud components install gke-gcloud-auth-plugin --quiet
-          else
-            sudo apt-get update
-            sudo apt-get install -y google-cloud-sdk-gke-gcloud-auth-plugin || true
-          fi
-          echo "USE_GKE_GCLOUD_AUTH_PLUGIN=True" >> $GITHUB_ENV
+          TOKEN="$(gcloud auth print-access-token)"
+          kubectl config set-credentials gcp --token="${TOKEN}"
+          kubectl config set-context --current --user=gcp
 
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker $GAR_HOST --quiet
