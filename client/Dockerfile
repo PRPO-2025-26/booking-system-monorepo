@@ -4,6 +4,7 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 COPY . .
+RUN chmod -R a+rx /app/node_modules/.bin
 RUN npm run build
 
 FROM nginx:1.25-alpine
