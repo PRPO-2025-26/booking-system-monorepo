@@ -47,7 +47,7 @@ jobs:
     name: Build & Push images (GAR)
     needs: test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && env.GCP_SA_KEY != ''
+    if: github.ref == 'refs/heads/main'
     env:
       GCP_PROJECT: ${{ secrets.GCP_PROJECT }}
       GAR_HOST: europe-west1-docker.pkg.dev
@@ -56,6 +56,12 @@ jobs:
       GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Skip (missing GCP_SA_KEY)
+        if: ${{ env.GCP_SA_KEY == '' }}
+        run: |
+          echo "GCP_SA_KEY secret is missing; skipping build/push and deploy."
+          exit 0
 
       - name: Auth to Google Cloud
         uses: google-github-actions/auth@v2
@@ -93,7 +99,7 @@ jobs:
     name: Deploy to GKE
     needs: build-and-push
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && env.GCP_SA_KEY != ''
+    if: github.ref == 'refs/heads/main'
     env:
       GCP_PROJECT: ${{ secrets.GCP_PROJECT }}
       GKE_CLUSTER: ${{ secrets.GKE_CLUSTER }}
@@ -102,6 +108,12 @@ jobs:
       GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Skip (missing GCP_SA_KEY)
+        if: ${{ env.GCP_SA_KEY == '' }}
+        run: |
+          echo "GCP_SA_KEY secret is missing; skipping deploy."
+          exit 0
 
       - name: Auth to Google Cloud
         uses: google-github-actions/auth@v2
