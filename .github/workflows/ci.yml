@@ -73,6 +73,12 @@ jobs:
         with:
           project_id: ${{ env.GCP_PROJECT }}
 
+      - name: Install GKE auth plugin
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y google-cloud-cli-gke-gcloud-auth-plugin
+          gcloud config set use_gke_gcloud_auth_plugin True
+
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker $GAR_HOST --quiet
 
