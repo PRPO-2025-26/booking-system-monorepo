@@ -17,6 +17,9 @@ jobs:
           - auth-service
           - facility-service
           - booking-service
+          - calendar-service
+          - notification-service
+          - payment-service
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -70,7 +73,7 @@ jobs:
         env:
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          services=(auth-service facility-service booking-service)
+          services=(auth-service facility-service booking-service calendar-service notification-service payment-service)
           for svc in "${services[@]}"; do
             docker build -f services/${svc}/Dockerfile -t $GAR_HOST/$GCP_PROJECT/$GAR_REPO/${svc}:latest -t $GAR_HOST/$GCP_PROJECT/$GAR_REPO/${svc}:${IMAGE_TAG} .
             docker push $GAR_HOST/$GCP_PROJECT/$GAR_REPO/${svc}:latest

@@ -184,6 +184,27 @@ export async function createBooking(
   return (await res.json()) as Booking;
 }
 
+export async function updateBookingStatus(
+  userId: number,
+  bookingId: number,
+  status: "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED"
+): Promise<Booking> {
+  const res = await fetch(`${BOOKING_API_BASE}/${bookingId}/status`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      "X-User-Id": String(userId),
+    },
+    body: JSON.stringify({ status }),
+  });
+  if (!res.ok) {
+    throw new Error(
+      (await res.text()) || `Update booking status failed (${res.status})`
+    );
+  }
+  return (await res.json()) as Booking;
+}
+
 export async function createCalendarEvent(
   payload: CreateCalendarEventPayload
 ): Promise<CalendarEvent> {

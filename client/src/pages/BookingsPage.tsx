@@ -3,6 +3,7 @@ import {
   createBooking,
   fetchFacilities,
   fetchMyBookings,
+  updateBookingStatus,
   type Booking,
   type Facility,
 } from "../api";
@@ -14,6 +15,7 @@ export const BookingsPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [confirmingId, setConfirmingId] = useState<number | null>(null);
   const [facilityId, setFacilityId] = useState<number | null>(null);
   const [start, setStart] = useState<string>("");
   const [end, setEnd] = useState<string>("");
@@ -48,6 +50,29 @@ export const BookingsPage: React.FC = () => {
   }, []);
 
   const user = useMemo(() => loadUser(), []);
+
+  const reloadBookings = async () => {
+    if (!user) return;
+    const bookData = await fetchMyBookings(user.id);
+    setBookings(bookData);
+  };
+
+  const confirmBooking = async (bookingId: number) => {
+    if (!user) {
+      setError("Please log in first.");
+      return;
+    }
+    setConfirmingId(bookingId);
+    setError(null);
+    try {
+      await updateBookingStatus(user.id, bookingId, "CONFIRMED");
+      await reloadBookings();
+    } catch (e: any) {
+      setError(e.message || "Failed to confirm booking");
+    } finally {
+      setConfirmingId(null);
+    }
+  };
 
   const submitBooking = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -164,6 +189,7 @@ export const BookingsPage: React.FC = () => {
             <th>Status</th>
             <th>Start</th>
             <th>End</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -174,6 +200,22 @@ export const BookingsPage: React.FC = () => {
               <td>{booking.status}</td>
               <td>{new Date(booking.startTime).toLocaleString()}</td>
               <td>{new Date(booking.endTime).toLocaleString()}</td>
+              <td>
+                {booking.status === "PENDING" ? (
+                  <button
+                    className="button"
+                    onClick={() => confirmBooking(booking.id)}
+                    disabled={confirmingId === booking.id}
+                    style={{ padding: "6px 10px" }}
+                    type="button"
+                    title="Sets booking status to CONFIRMED (demo trigger for integrations)"
+                  >
+                    {confirmingId === booking.id ? "Confirming..." : "Confirm"}
+                  </button>
+                ) : (
+                  <span style={{ color: "#9ca6c7" }}>—</span>
+                )}
+              </td>
             </tr>
           ))}
         </tbody>
